@@ -33,24 +33,26 @@ class ImageController extends Controller
 
         $width = (int)$matches[1];
         $height = (int)$matches[2];
-        $crop = isset($matches[3]) && $matches[3] === '!'; // 크롭 여부
-        ray([
-            'width' => $width,
-            'height' => $height,
-            'crop' => $crop,
-        ])->blue();
+        $forceCrop = isset($matches[3]) && $matches[3] === '!'; // 크롭 여부
 
         // 최대 크기 제한 설정
         if ($width > 3000 || $height > 3000) {
             throw new \InvalidArgumentException('Maximum dimension exceeded');
         }
 
-        $imageData = $this->imageService->getStorageDisk($bucket, $path);
-        $processedImage = $this->imageService->processImage($imageData, $width, $height, $crop);
+        $options = [
+            'width'     => $width,
+            'height'    => $height,
+            'forceCrop' => $forceCrop,
+        ];
+        ray($options)->label('options');
+
+        $processedImage = $this->imageService->getProcessedImage($bucket, $path, $options);
 
         return new Response($processedImage, 200, [
-            'Content-Type' => 'image/webp',
+            'Content-Type'  => 'image/webp',
             'Cache-Control' => 'public, max-age=31536000',
+            'ETag'          => md5($processedImage),
         ]);
     }
 }

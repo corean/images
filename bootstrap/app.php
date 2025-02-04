@@ -11,7 +11,9 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware) {
-        //
+        $middleware->appendToGroup('image', [
+            \App\Http\Middleware\ImageRateLimit::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
         //

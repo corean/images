@@ -10,10 +10,12 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 class ImageService
 {
     private ImageManager $imageManager;
+    private ImageCacheService $cache;
 
-    public function __construct()
+    public function __construct(ImageCacheService $cache)
     {
         $this->imageManager = ImageManager::withDriver(GdDriver::class);
+        $this->cache = $cache;
     }
 
     public function getStorageDisk(string $bucket, string $path): string
@@ -40,6 +42,30 @@ class ImageService
         } catch (\Exception $e) {
             throw new NotFoundHttpException("Failed to retrieve image: {$e->getMessage()}");
         }
+    }
+
+    public function getProcessedImage(string $bucket, string $path, ?array $options = null): string
+    {
+        $cacheKey = $this->cache->getCacheKey($bucket, $path, $options ? json_encode($options) : '');
+
+        if ($this->cache->has($cacheKey)) {
+            return $this->cache->get($cacheKey);
+        }
+
+        $imageData = $this->getStorageDisk($bucket, $path);
+
+        if ($options) {
+            $imageData = $this->processImage(
+                $imageData,
+                $options['width'],
+                $options['height'],
+                $options['forceCrop'] ?? false
+            );
+        }
+
+        $this->cache->put($cacheKey, $imageData);
+
+        return $imageData;
     }
 
     public function processImage(string $imageData, int $width, int $height, bool $crop = false): string
