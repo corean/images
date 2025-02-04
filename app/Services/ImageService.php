@@ -4,6 +4,7 @@ namespace App\Services;
 
 use Illuminate\Support\Facades\Storage;
 use Intervention\Image\Drivers\Gd\Driver as GdDriver;
+use Intervention\Image\Drivers\Vips\Driver as VipsDriver;
 use Intervention\Image\ImageManager;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
@@ -14,7 +15,11 @@ class ImageService
 
     public function __construct(ImageCacheService $cache)
     {
-        $this->imageManager = ImageManager::withDriver(GdDriver::class);
+        $driver = config('app.image_driver'); // .env에서 설정, 기본값은 vips
+
+        $this->imageManager = ImageManager::withDriver(
+            $driver === 'vips' ? VipsDriver::class : GdDriver::class,
+        );
         $this->cache = $cache;
     }
 

@@ -124,4 +124,6 @@ return [
     ],
 
     'forge_url' => env('FORGE_BADGE_URL', ''),
+
+    'image_driver' => env('IMAGE_DRIVER', 'vips'),
 ];
