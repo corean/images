@@ -25,7 +25,7 @@ class ImageController extends Controller
         ]);
     }
 
-    public function resize(Request $request, string $size, string $bucket, string $path): Response
+    public function resize(Request $request, string $bucket, string $size, string $path): Response
     {
         if (!preg_match('/^(\d+)x(\d+)(!)?$/', $size, $matches)) {
             throw new \InvalidArgumentException('Invalid size parameter format');

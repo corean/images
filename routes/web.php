@@ -4,18 +4,13 @@ use App\Http\Controllers\ImageController;
 use Illuminate\Support\Facades\Route;
 
 
-Route::middleware([
-    'throttle:200,1', // 분당 100개 제한
-])->group(function () {
+Route::get('/{bucket}/{size}/{path}', [ImageController::class, 'resize'])
+    ->where([
+        'size' => '^(\d+x\d+)(!)?$',
+        'path' => '.*',
+    ])
+    ->name('image.resize');
 
-    Route::get('/{size}/{bucket}/{path}', [ImageController::class, 'resize'])
-        ->where([
-            'size' => '^(\d+x\d+)(!)?$',
-            'path' => '.*',
-        ])
-        ->name('image.resize');
-
-    Route::get('/{bucket}/{path}', [ImageController::class, 'show'])
-        ->where(['path' => '.*'])
-        ->name('image.show');
-});
+Route::get('/{bucket}/{path}', [ImageController::class, 'show'])
+    ->where(['path' => '.*'])
+    ->name('image.show');
