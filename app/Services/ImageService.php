@@ -127,12 +127,32 @@ class ImageService
             $originalWidth = $image->width();
             $originalHeight = $image->height();
 
-            // 한쪽 차원이 0인 경우 비율 계산
+            // 한쪽 차원이 0인 경우의 처리 개선
             if ($width === 0 && $height > 0) {
-                $width = (int)round(($height / $originalHeight) * $originalWidth);
+                // 세로 기준으로 가로 크기 계산
+                $ratio = $height / $originalHeight;
+                $width = (int)round($originalWidth * $ratio);
             } elseif ($height === 0 && $width > 0) {
-                $height = (int)round(($width / $originalWidth) * $originalHeight);
+                // 가로 기준으로 세로 크기 계산
+                $ratio = $width / $originalWidth;
+                $height = (int)round($originalHeight * $ratio);
             }
+
+            // 계산된 크기가 원본보다 크면 원본 크기 사용
+            if ($width > $originalWidth) {
+                $ratio = $originalWidth / $width;
+                $width = $originalWidth;
+                $height = (int)round($height * $ratio);
+            }
+            if ($height > $originalHeight) {
+                $ratio = $originalHeight / $height;
+                $height = $originalHeight;
+                $width = (int)round($width * $ratio);
+            }
+
+            // 최소 크기 보장
+            $width = max($width, 1);
+            $height = max($height, 1);
 
             try {
                 if ($crop) {
@@ -143,11 +163,17 @@ class ImageService
                         $constraint->upsize();
                     });
                 }
+
+                return $image->toWebp(80);
             } catch (\Exception $e) {
+                \Log::error("Image resize failed: {$e->getMessage()}", [
+                    'originalWidth'  => $originalWidth,
+                    'originalHeight' => $originalHeight,
+                    'targetWidth'    => $width,
+                    'targetHeight'   => $height,
+                ]);
                 throw new \InvalidArgumentException("Image processing failed: {$e->getMessage()}");
             }
-
-            return $image->toWebp(80);
         } catch (\Exception $e) {
             throw new \RuntimeException("Image processing failed: {$e->getMessage()}");
         }
