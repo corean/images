@@ -33,26 +33,45 @@ class ImageController extends Controller
 
         $width = (int)$matches[1];
         $height = (int)$matches[2];
-        $forceCrop = isset($matches[3]) && $matches[3] === '!'; // 크롭 여부
+        $forceCrop = isset($matches[3]) && $matches[3] === '!';
 
-        // 최대 크기 제한 설정
-        if ($width > 3000 || $height > 3000) {
+        // Validate dimensions
+        if (($width > 3000) || ($height > 3000)) {
             throw new \InvalidArgumentException('Maximum dimension exceeded');
         }
 
+        if ($width === 0 && $height === 0) {
+            throw new \InvalidArgumentException('Both dimensions cannot be zero');
+        }
+
         $options = [
-            'width'     => $width,
-            'height'    => $height,
+            'width'               => $width,
+            'height'              => $height,
             'forceCrop' => $forceCrop,
+            'maintainAspectRatio' => true,
         ];
-        ray($options)->label('options');
+
+        // If both dimensions are specified and forceCrop is true,
+        // we don't maintain aspect ratio
+        if ($width > 0 && $height > 0 && $forceCrop) {
+            $options['maintainAspectRatio'] = false;
+        }
 
         $processedImage = $this->imageService->getProcessedImage($bucket, $path, $options);
 
+        // Generate ETag based on the processed image content and resize parameters
+        $eTag = md5($processedImage.$size);
+
+        // Check if-none-match header
+        if ($request->header('If-None-Match') === $eTag) {
+            return new Response(null, 304);
+        }
+
         return new Response($processedImage, 200, [
-            'Content-Type'  => 'image/webp',
+            'Content-Type' => 'image/webp',
             'Cache-Control' => 'public, max-age=31536000',
-            'ETag'          => md5($processedImage),
+            'ETag'         => $eTag,
+            'Vary'         => 'Accept',
         ]);
     }
 }

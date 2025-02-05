@@ -39,7 +39,7 @@ class ImageService
                 'root'                    => config('filesystems.disks.minio.root'),
             ]);
 
-            if ( ! $disk->exists($path)) {
+            if (!$disk->exists($path)) {
                 throw new NotFoundHttpException("Image not found at path: {$path}");
             }
 
@@ -77,9 +77,16 @@ class ImageService
     {
         try {
             $image = $this->imageManager->read($imageData);
+            $originalWidth = $image->width();
+            $originalHeight = $image->height();
 
+            // 한쪽 차원이 0인 경우 비율 계산
+            if ($width === 0 && $height > 0) {
+                $width = (int)round(($height / $originalHeight) * $originalWidth);
+            } elseif ($height === 0 && $width > 0) {
+                $height = (int)round(($width / $originalWidth) * $originalHeight);
+            }
 
-            // 리사이즈 로직 개선
             try {
                 if ($crop) {
                     $image->cover($width, $height); // 비율 유지하며 지정 크기에 맞춰 크롭
