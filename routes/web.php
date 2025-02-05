@@ -5,7 +5,7 @@ use Illuminate\Support\Facades\Route;
 
 
 Route::middleware([
-    'throttle:100,1', // 분당 100개 제한
+    'throttle:200,1', // 분당 100개 제한
 ])->group(function () {
 
     Route::get('/{size}/{bucket}/{path}', [ImageController::class, 'resize'])

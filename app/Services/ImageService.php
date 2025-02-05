@@ -12,7 +12,7 @@ class ImageService
 {
     private ImageManager $imageManager;
     private ImageCacheService $cache;
-    private const PREVIEW_DIR = 'previews';
+    private const string PREVIEW_DIR = 'previews';
 
     public function __construct(ImageCacheService $cache)
     {
