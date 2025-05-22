@@ -44,12 +44,9 @@ class ImageService
     {
         try {
             $disk = $this->getMinioStorage($bucket);
-
-            if (!$disk->exists($path)) {
-                throw new NotFoundHttpException("Image not found at path: {$path}");
-            }
-
+            
             return $disk->get($path);
+
         } catch (\Exception $e) {
             throw new NotFoundHttpException("Failed to retrieve image: {$e->getMessage()}");
         }
