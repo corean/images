@@ -43,9 +43,7 @@ class ImageService
     public function getStorageDisk(string $bucket, string $path): string
     {
         try {
-            $disk = $this->getMinioStorage($bucket);
-            
-            return $disk->get($path);
+            return $this->getMinioStorage($bucket)->get($path);
 
         } catch (\Exception $e) {
             throw new NotFoundHttpException("Failed to retrieve image: {$e->getMessage()}");
@@ -79,9 +77,10 @@ class ImageService
         $previewPath = $this->generatePreviewPath($path, $options);
         $disk = $this->getMinioStorage($bucket);
 
-        // 미리보기 이미지가 존재하면 반환
-        if ($disk->exists($previewPath)) {
+        try {
             return $disk->get($previewPath);
+        } catch (\Throwable $e) {
+            //
         }
 
         // 원본 이미지 로드
