@@ -28,13 +28,13 @@ class ImageController extends Controller
     public function resize(Request $request, string $bucket, string $size, string $path): Response
     {
         $size = urldecode($size);
-        if (!preg_match('/^(\d+)x(\d+)(!)?$/', $size, $matches)) {
+        if (!preg_match('/^(\d+)x(\d+)(c|!)?$/', $size, $matches)) {
             throw new \InvalidArgumentException('Invalid size parameter format');
         }
 
         $width = (int)$matches[1];
         $height = (int)$matches[2];
-        $forceCrop = isset($matches[3]) && $matches[3] === '!';
+        $forceCrop = isset($matches[3]) && in_array($matches[3], ['c', '!'], true);
 
         // Validate dimensions
         if (($width > 3000) || ($height > 3000)) {
