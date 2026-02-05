@@ -6,7 +6,7 @@ use Illuminate\Support\Facades\Route;
 
 Route::get('/{bucket}/{size}/{path}', [ImageController::class, 'resize'])
     ->where([
-        'size' => '^(\d+x\d+)(!)?$',
+        'size' => '^(\d+x\d+)(!|%21)?$',
         'path' => '.*',
     ])
     ->name('image.resize');
