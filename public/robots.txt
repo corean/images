@@ -1,2 +1,5 @@
+# 이미지 프록시는 검색엔진에 노출할 필요가 없다. 버킷에는 사용자 업로드물과
+# 내부 산출물(user-images, filament_exports, livewire-tmp 등)이 섞여 있고
+# 버킷 화이트리스트가 없어 프록시로 전부 읽힌다. 운영·개발 모두 차단한다.
 User-agent: *
-Disallow:
+Disallow: /
