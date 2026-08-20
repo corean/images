@@ -8,6 +8,7 @@ use Illuminate\Contracts\Filesystem\Filesystem;
 use Mockery;
 use Mockery\MockInterface;
 use ReflectionProperty;
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Tests\TestCase;
 
 /**
@@ -46,6 +47,36 @@ class ImageServicePreviewTest extends TestCase
         imagedestroy($canvas);
 
         return (string) ob_get_clean();
+    }
+
+    /**
+     * 옵션이 없으면 리사이즈 경로 전체를 건너뛰고 원본을 그대로 돌려준다.
+     * 미리보기 경로를 조회해서도 안 된다.
+     */
+    public function test_it_returns_the_original_when_no_options_are_given(): void
+    {
+        $disk = Mockery::mock(Filesystem::class);
+        $disk->shouldReceive('get')->once()->with(self::ORIGINAL)->andReturn('original-bytes');
+        $disk->shouldNotReceive('put');
+
+        $result = $this->serviceWithDisk($disk)->getProcessedImage(self::BUCKET, self::ORIGINAL);
+
+        $this->assertSame('original-bytes', $result);
+    }
+
+    /**
+     * 스토리지 실패는 NotFoundHttpException 으로 바뀌어야 한다. 이 변환이
+     * 없으면 없는 이미지 요청이 404 대신 500 으로 나간다.
+     */
+    public function test_a_storage_failure_becomes_a_not_found_exception(): void
+    {
+        $disk = Mockery::mock(Filesystem::class);
+        $disk->shouldReceive('get')->once()->andThrow(new FileNotFoundException('missing'));
+
+        $this->expectException(NotFoundHttpException::class);
+        $this->expectExceptionMessage('Failed to retrieve image');
+
+        $this->serviceWithDisk($disk)->getStorageDisk(self::BUCKET, self::ORIGINAL);
     }
 
     public function test_it_returns_the_stored_preview_without_reading_the_original(): void
