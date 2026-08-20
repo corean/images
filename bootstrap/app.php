@@ -20,7 +20,7 @@ return Application::configure(basePath: dirname(__DIR__))
          *
          * 바이너리 응답에 Set-Cookie 가 실리면 응답당 약 900B 가 낭비되고,
          * 공용 캐시·CDN 이 해당 응답을 캐시 불가로 취급한다.
-         * 레이트 리밋이 필요하면 App\Http\Middleware\ImageRateLimit 를 여기에 넣는다.
+         * 레이트 리밋이 필요하면 내장 throttle 미들웨어를 여기에 넣는다.
          */
         $middleware->group('image', []);
     })
