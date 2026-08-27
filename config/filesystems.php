@@ -61,16 +61,28 @@ return [
         ],
 
         'minio' => [
-            'driver'                  => 's3',
-            'key'                     => env('MINIO_ACCESS_KEY_ID'),
-            'secret'                  => env('MINIO_SECRET_ACCESS_KEY'),
-            'region'                  => env('MINIO_REGION', 'us-east-1'),
-            'bucket'                  => env('MINIO_BUCKET'),
-            'url'                     => env('MINIO_URL'),
-            'endpoint'                => env('MINIO_ENDPOINT'),
+            'driver' => 's3',
+            'key' => env('MINIO_ACCESS_KEY_ID'),
+            'secret' => env('MINIO_SECRET_ACCESS_KEY'),
+            'region' => env('MINIO_REGION', 'us-east-1'),
+            'bucket' => env('MINIO_BUCKET'),
+            'url' => env('MINIO_URL'),
+            'endpoint' => env('MINIO_ENDPOINT'),
             'use_path_style_endpoint' => env('MINIO_USE_PATH_STYLE_ENDPOINT', false),
-            'throw'                   => true,
-            'root'                    => env('MINIO_ROOT', ''),
+            'throw' => true,
+            'root' => env('MINIO_ROOT', ''),
+
+            /*
+             * Octane 처럼 워커 수가 적은 실행 모델에서는 스토리지 지연 하나가
+             * 워커 하나를 통째로 묶는다. 타임아웃이 없으면 그 지연이 요청
+             * 전체를 막고, 재시도가 없으면 순간적인 네트워크 끊김이 그대로
+             * 사용자에게 노출된다.
+             */
+            'http' => [
+                'connect_timeout' => (float) env('MINIO_CONNECT_TIMEOUT', 2),
+                'timeout' => (float) env('MINIO_TIMEOUT', 10),
+            ],
+            'retries' => (int) env('MINIO_RETRIES', 1),
         ],
     ],
 

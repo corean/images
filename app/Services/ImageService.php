@@ -37,7 +37,15 @@ class ImageService
 
     private function getMinioStorage(string $bucket): Filesystem
     {
-        return $this->disks[$bucket] ??= Storage::build([
+        return $this->disks[$bucket] ??= Storage::build($this->minioDiskConfig($bucket));
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function minioDiskConfig(string $bucket): array
+    {
+        return [
             'driver' => 's3',
             'key' => config('filesystems.disks.minio.key'),
             'secret' => config('filesystems.disks.minio.secret'),
@@ -48,7 +56,9 @@ class ImageService
             'use_path_style_endpoint' => config('filesystems.disks.minio.use_path_style_endpoint', false),
             'throw' => config('filesystems.disks.minio.throw'),
             'root' => config('filesystems.disks.minio.root'),
-        ]);
+            'http' => config('filesystems.disks.minio.http'),
+            'retries' => config('filesystems.disks.minio.retries'),
+        ];
     }
 
     public function getStorageDisk(string $bucket, string $path): string
