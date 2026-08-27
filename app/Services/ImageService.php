@@ -2,12 +2,17 @@
 
 namespace App\Services;
 
+use Aws\Exception\AwsException;
 use Illuminate\Contracts\Filesystem\Filesystem;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Intervention\Image\Drivers\Gd\Driver as GdDriver;
 use Intervention\Image\Drivers\Vips\Driver as VipsDriver;
 use Intervention\Image\ImageManager;
+use Symfony\Component\HttpKernel\Exception\HttpException;
+use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
+use Symfony\Component\HttpKernel\Exception\ServiceUnavailableHttpException;
 
 class ImageService
 {
@@ -50,9 +55,50 @@ class ImageService
     {
         try {
             return $this->getMinioStorage($bucket)->get($path);
-        } catch (\Exception $e) {
-            throw new NotFoundHttpException("Failed to retrieve image: {$e->getMessage()}");
+        } catch (\Throwable $e) {
+            throw $this->translateStorageFailure($e, $bucket, $path);
         }
+    }
+
+    /**
+     * 스토리지 예외를 원인에 맞는 HTTP 예외로 바꾼다.
+     *
+     * 전에는 권한 오류·연결 실패·오브젝트 없음이 전부 404 하나로 뭉개졌다.
+     * NotFoundHttpException 은 기본 리포트 대상이 아니라 로그에도 남지 않아,
+     * 설정 오류를 원인 불명 404 로 진단해야 했다. 오브젝트가 실제로 없는
+     * 경우(NoSuchKey/NoSuchBucket)만 404 로 두고, 그 외는 500/503 으로
+     * 구분해 로그에 남긴다.
+     */
+    private function translateStorageFailure(\Throwable $e, string $bucket, string $path): HttpExceptionInterface
+    {
+        $aws = $this->findAwsException($e);
+
+        if ($aws?->isConnectionError()) {
+            Log::error("Failed to reach storage for {$bucket}/{$path}: {$e->getMessage()}");
+
+            return new ServiceUnavailableHttpException(null, "Failed to retrieve image: {$e->getMessage()}", $e);
+        }
+
+        $code = $aws?->getAwsErrorCode();
+
+        if ($code !== null && ! in_array($code, ['NoSuchKey', 'NoSuchBucket'], true)) {
+            Log::error("Storage access error for {$bucket}/{$path} ({$code}): {$e->getMessage()}");
+
+            return new HttpException(500, "Failed to retrieve image: {$e->getMessage()}", $e);
+        }
+
+        return new NotFoundHttpException("Failed to retrieve image: {$e->getMessage()}", $e);
+    }
+
+    private function findAwsException(\Throwable $e): ?AwsException
+    {
+        for ($current = $e; $current !== null; $current = $current->getPrevious()) {
+            if ($current instanceof AwsException) {
+                return $current;
+            }
+        }
+
+        return null;
     }
 
     /**
