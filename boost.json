@@ -16,6 +16,7 @@
     "skills": [
         "infer-conventions",
         "laravel-best-practices",
+        "testing-best-practices",
         "octane-development",
         "tailwindcss-development",
         "debugging-output-and-previewing-html-using-ray"
