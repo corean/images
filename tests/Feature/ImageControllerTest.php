@@ -28,11 +28,27 @@ class ImageControllerTest extends TestCase
      */
     private const string CACHE_CONTROL = 'max-age=31536000, public';
 
+    /**
+     * 스토리지를 만지는 메서드만 대체한다. previewETag() 는 I/O 없이 경로만
+     * 계산하므로 실제 구현을 그대로 태운다.
+     */
     private function mockService(callable $expectations): void
     {
-        $this->mock(ImageService::class, function (MockInterface $mock) use ($expectations): void {
-            $expectations($mock);
-        });
+        $mock = Mockery::mock(ImageService::class)->makePartial();
+        $expectations($mock);
+
+        $this->instance(ImageService::class, $mock);
+    }
+
+    /**
+     * ETag 기대값을 서비스와 독립적으로 계산한다. 서비스 메서드를 그대로
+     * 호출하면 형식이 바뀌어도 테스트가 통과하므로 여기서 사양을 다시 쓴다.
+     */
+    private function previewETag(string $dimensions): string
+    {
+        $hash = md5(self::PATH);
+
+        return md5(self::BUCKET.'/previews/'.$dimensions.'/'.substr($hash, 0, 2).'/'.$hash.'.webp');
     }
 
     public function test_it_serves_the_original_image(): void
@@ -165,21 +181,43 @@ class ImageControllerTest extends TestCase
     }
 
     /**
-     * ETag 는 처리된 바이트와 사이즈 문자열로 만든다. 같은 ETag 로 재요청하면
-     * 본문 없이 304 가 나가야 한다. CDN 대역폭이 여기에 달려 있다.
+     * ETag 는 미리보기 저장 경로에서 나온다. 같은 ETag 로 재요청하면 본문 없이
+     * 304 가 나가야 한다. CDN·브라우저 대역폭이 여기에 달려 있다.
      */
     public function test_a_matching_if_none_match_returns_not_modified(): void
     {
+        $eTag = $this->previewETag('400x300');
+
         $this->mockService(function (MockInterface $mock): void {
-            $mock->shouldReceive('getProcessedImage')->once()->andReturn('webp-bytes');
+            $mock->shouldNotReceive('getProcessedImage');
         });
 
         $response = $this->get(
             '/'.self::BUCKET.'/400x300/'.self::PATH,
-            ['If-None-Match' => md5('webp-bytes400x300')],
+            ['If-None-Match' => $eTag],
         );
 
         $response->assertNoContent(304);
+    }
+
+    /**
+     * 304 는 스토리지를 건드리지 않고 끝나야 한다. ETag 를 바이트로 계산하던
+     * 시절에는 본문을 버릴 뿐 MinIO 왕복은 그대로 냈다.
+     */
+    public function test_a_not_modified_response_carries_the_validators(): void
+    {
+        $this->mockService(function (MockInterface $mock): void {
+            $mock->shouldNotReceive('getProcessedImage');
+        });
+
+        $response = $this->get(
+            '/'.self::BUCKET.'/400x300/'.self::PATH,
+            ['If-None-Match' => $this->previewETag('400x300')],
+        );
+
+        $response->assertNoContent(304);
+        $this->assertSame($this->previewETag('400x300'), $response->headers->get('ETag'));
+        $this->assertSame(self::CACHE_CONTROL, $response->headers->get('Cache-Control'));
     }
 
     public function test_a_stale_if_none_match_returns_the_image(): void
@@ -194,14 +232,15 @@ class ImageControllerTest extends TestCase
         );
 
         $response->assertOk();
-        $this->assertSame(md5('webp-bytes400x300'), $response->headers->get('ETag'));
+        $response->assertContent('webp-bytes');
+        $this->assertSame($this->previewETag('400x300'), $response->headers->get('ETag'));
     }
 
     /**
-     * 사이즈 문자열이 달라지면 ETag 도 달라져야 한다. 바이트만으로 해시하면
-     * 크롭 여부가 다른 두 결과가 같은 ETag 를 가질 수 있다.
+     * 크롭 여부가 다르면 미리보기 경로가 갈라지므로 ETag 도 달라져야 한다.
+     * 같아지면 크롭·비크롭 두 결과가 서로의 캐시를 덮어쓴다.
      */
-    public function test_the_etag_covers_the_size_string(): void
+    public function test_the_etag_distinguishes_cropped_from_plain(): void
     {
         $this->mockService(function (MockInterface $mock): void {
             $mock->shouldReceive('getProcessedImage')->twice()->andReturn('webp-bytes');
@@ -214,6 +253,21 @@ class ImageControllerTest extends TestCase
             $plain->headers->get('ETag'),
             $cropped->headers->get('ETag'),
         );
+    }
+
+    /**
+     * 미리보기 바이트가 달라져도 경로가 같으면 ETag 는 같다. 미리보기 캐시가
+     * 이미 (경로, 크기, 크롭) 조합의 내용을 고정하고 있으므로 의도된 동작이다.
+     */
+    public function test_the_etag_does_not_depend_on_the_response_bytes(): void
+    {
+        $this->mockService(function (MockInterface $mock): void {
+            $mock->shouldReceive('getProcessedImage')->once()->andReturn('completely-different-bytes');
+        });
+
+        $response = $this->get('/'.self::BUCKET.'/400x300/'.self::PATH);
+
+        $this->assertSame($this->previewETag('400x300'), $response->headers->get('ETag'));
     }
 
     /**

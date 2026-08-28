@@ -130,6 +130,26 @@ class ImageService
     }
 
     /**
+     * 미리보기의 ETag. 저장 경로만으로 결정되므로 바이트를 읽기 전에 계산된다.
+     *
+     * 전에는 md5(처리된 바이트) 라서 조건부 요청이 304 로 끝나는 경우에도
+     * 미리보기 전체를 MinIO 에서 받아야 했다. 미리보기 경로는
+     * (원본 경로, 폭, 높이, 크롭) 의 순수 함수이고 그 조합의 내용은 이미
+     * 미리보기 캐시에 고정돼 있으므로, 경로 기반 ETag 는 바이트 기반과
+     * 같은 것을 식별하면서 왕복만 없앤다.
+     *
+     * 버킷을 넣는 이유는 미리보기 경로에 버킷이 들어가지 않아서다.
+     * ETag 는 URL 단위로 검증되므로 버킷이 달라도 충돌하지 않지만,
+     * 같은 값이 서로 다른 내용을 가리키는 상태를 만들지 않는다.
+     *
+     * @param  array{width: int, height: int, forceCrop?: bool}  $options
+     */
+    public function previewETag(string $bucket, string $path, array $options): string
+    {
+        return md5($bucket.'/'.$this->generatePreviewPath($path, $options));
+    }
+
+    /**
      * @param  array{width: int, height: int, forceCrop?: bool}|null  $options
      */
     public function getProcessedImage(string $bucket, string $path, ?array $options = null): string
