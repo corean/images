@@ -1,0 +1,7 @@
+# 실행 시 생성되는 산출물·설정 (AUTH 자격증명 포함 가능)
+bench.env
+urls.top.txt
+urls.sizes.txt
+urls.timing.txt
+urls.edge.txt
+*.csv

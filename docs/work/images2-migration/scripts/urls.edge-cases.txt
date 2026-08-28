@@ -1,0 +1,46 @@
+# Phase 2 경계 케이스 URL 템플릿
+#
+# __BUCKET__ 과 __OBJECT__ 를 실제 값으로 치환한 뒤 사용한다.
+#   sed -e 's|__BUCKET__|orderhow|g' -e 's|__OBJECT__|products/2026/01/sample.jpg|g' \
+#       urls.edge-cases.txt > urls.edge.txt
+#
+# __HANGUL__ 은 한글 파일명이 실재하는 오브젝트 키로 직접 치환할 것 (URL 인코딩된 형태).
+
+# --- 정상 크기 ---
+/__BUCKET__/__OBJECT__
+/__BUCKET__/300x300/__OBJECT__
+/__BUCKET__/300x300c/__OBJECT__
+/__BUCKET__/300x300!/__OBJECT__
+
+# --- % 인코딩된 crop 접미사 (라우트 정규식이 %21 을 허용한다) ---
+/__BUCKET__/300x300%21/__OBJECT__
+
+# --- 한쪽 차원 0 ---
+/__BUCKET__/300x0/__OBJECT__
+/__BUCKET__/0x300/__OBJECT__
+
+# --- 경계값: 최대 허용 3000, 초과 3001 (초과는 400 계열이어야 한다) ---
+/__BUCKET__/3000x3000/__OBJECT__
+/__BUCKET__/3001x3001/__OBJECT__
+
+# --- 둘 다 0 (예외여야 한다) ---
+/__BUCKET__/0x0/__OBJECT__
+
+# --- 크기 토큰이 아닌 값 → show 라우트로 폴백되어야 한다 ---
+/__BUCKET__/notasize/__OBJECT__
+
+# --- 원본 확대 요청 (원본보다 큰 크기 → 원본 크기로 제한되어야 한다) ---
+/__BUCKET__/2999x2999/__OBJECT__
+
+# --- 존재하지 않는 오브젝트 (404) ---
+/__BUCKET__/300x300/does/not/exist-9f3a1c.jpg
+/__BUCKET__/does/not/exist-9f3a1c.jpg
+
+# --- 존재하지 않는 버킷 ---
+/__NOSUCHBUCKET__/300x300/__OBJECT__
+
+# --- 깊은 경로 (path 파라미터가 .* 라 슬래시를 다수 포함할 수 있다) ---
+/__BUCKET__/300x300/a/b/c/d/e/__OBJECT__
+
+# --- 한글 파일명 ---
+/__BUCKET__/300x300/__HANGUL__
