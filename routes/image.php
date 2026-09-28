@@ -13,3 +13,7 @@ Route::get('/{bucket}/{size}/{path}', [ImageController::class, 'resize'])
 Route::get('/{bucket}/{path}', [ImageController::class, 'show'])
     ->where(['path' => '.*'])
     ->name('image.show');
+
+Route::get('/', function () {
+    return config('app.url');
+});
