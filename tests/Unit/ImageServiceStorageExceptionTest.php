@@ -4,6 +4,7 @@ namespace Tests\Unit;
 
 use App\Services\ImageService;
 use Aws\Command;
+use Aws\Exception\CredentialsException;
 use Aws\S3\Exception\S3Exception;
 use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Support\Facades\Log;
@@ -127,6 +128,30 @@ class ImageServiceStorageExceptionTest extends TestCase
             $this->fail('예외가 발생해야 한다.');
         } catch (ServiceUnavailableHttpException $e) {
             $this->assertSame(503, $e->getStatusCode());
+        }
+
+        Log::shouldHaveReceived('error')->once();
+    }
+
+    /**
+     * 자격증명을 못 찾는 경우도 설정 문제다. CredentialsException 은 AwsException 이
+     * 아니라서 전에는 로그 없는 404 로 떨어졌다. 실제로 .env 변수명이 달라 키가 비었을 때
+     * 모든 이미지가 원인 불명 404 가 됐다.
+     */
+    public function test_missing_credentials_return_500_and_are_logged(): void
+    {
+        Log::spy();
+
+        $cause = new CredentialsException('Error retrieving credentials from the instance profile metadata service.');
+
+        $disk = Mockery::mock(Filesystem::class);
+        $disk->shouldReceive('get')->once()->andThrow(UnableToReadFile::fromLocation(self::PATH, '', $cause));
+
+        try {
+            $this->serviceWithDisk($disk)->getStorageDisk(self::BUCKET, self::PATH);
+            $this->fail('예외가 발생해야 한다.');
+        } catch (HttpException $e) {
+            $this->assertSame(500, $e->getStatusCode());
         }
 
         Log::shouldHaveReceived('error')->once();

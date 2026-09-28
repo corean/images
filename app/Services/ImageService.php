@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use Aws\Exception\AwsException;
+use Aws\Exception\CredentialsException;
 use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
@@ -81,7 +82,13 @@ class ImageService
      */
     private function translateStorageFailure(\Throwable $e, string $bucket, string $path): HttpExceptionInterface
     {
-        $aws = $this->findAwsException($e);
+        if ($this->findPrevious($e, CredentialsException::class)) {
+            Log::error("Storage credentials unavailable for {$bucket}/{$path}: {$e->getMessage()}");
+
+            return new HttpException(500, "Failed to retrieve image: {$e->getMessage()}", $e);
+        }
+
+        $aws = $this->findPrevious($e, AwsException::class);
 
         if ($aws?->isConnectionError()) {
             Log::error("Failed to reach storage for {$bucket}/{$path}: {$e->getMessage()}");
@@ -100,10 +107,18 @@ class ImageService
         return new NotFoundHttpException("Failed to retrieve image: {$e->getMessage()}", $e);
     }
 
-    private function findAwsException(\Throwable $e): ?AwsException
+    /**
+     * 예외 체인에서 지정한 타입의 예외를 찾는다.
+     *
+     * @template T of \Throwable
+     *
+     * @param  class-string<T>  $class
+     * @return T|null
+     */
+    private function findPrevious(\Throwable $e, string $class): ?\Throwable
     {
         for ($current = $e; $current !== null; $current = $current->getPrevious()) {
-            if ($current instanceof AwsException) {
+            if ($current instanceof $class) {
                 return $current;
             }
         }
