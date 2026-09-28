@@ -7,7 +7,6 @@ use Tests\TestCase;
 class ExampleTest extends TestCase
 {
     /**
-     * 이 앱은 이미지 서빙 전용이라 루트 라우트가 없다.
      * 애플리케이션 기동 확인은 헬스체크 엔드포인트로 검증한다.
      */
     public function test_the_health_check_returns_a_successful_response(): void
@@ -17,10 +16,16 @@ class ExampleTest extends TestCase
         $response->assertStatus(200);
     }
 
-    public function test_the_root_path_returns_not_found(): void
+    /**
+     * 루트는 어느 인스턴스가 응답하는지 식별할 수 있도록 APP_URL 을 돌려준다.
+     */
+    public function test_the_root_path_returns_the_app_url(): void
     {
+        config(['app.url' => 'https://images.example.test']);
+
         $response = $this->get('/');
 
-        $response->assertStatus(404);
+        $response->assertOk();
+        $response->assertSeeText('https://images.example.test');
     }
 }
