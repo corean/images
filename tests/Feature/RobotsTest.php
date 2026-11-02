@@ -5,7 +5,7 @@ namespace Tests\Feature;
 use Tests\TestCase;
 
 /**
- * 크롤링 전면 차단을 고정한다.
+ * 크롤링 기본 차단(오더하우 상품 사진 원본만 예외)을 고정한다.
  *
  * f7ec395 에서 차단으로 바꿨지만 테스트가 없었다. public/robots.txt 는 웹서버가
  * 직접 서빙해 Laravel 라우터를 타지 않으므로 HTTP 요청으로는 검증할 수 없고,
@@ -48,5 +48,19 @@ class RobotsTest extends TestCase
     public function test_it_carries_no_empty_disallow_directive(): void
     {
         $this->assertNotContains('Disallow:', $this->directives());
+    }
+
+    /**
+     * 오더하우 상품 사진 원본만 예외로 연다. 허용 범위가 버킷 전체나 사이트 전체로
+     * 넓어지면 차단 사유(업로드물·내부 산출물 노출)가 되살아난다.
+     */
+    public function test_it_allows_only_orderhow_product_photos(): void
+    {
+        $allows = array_values(array_filter(
+            $this->directives(),
+            fn (string $line): bool => str_starts_with($line, 'Allow:'),
+        ));
+
+        $this->assertSame(['Allow: /orderhow/cropped-images/'], $allows);
     }
 }
