@@ -68,11 +68,8 @@ class ImageControllerTest extends TestCase
     }
 
     /**
-     * Content-Type 은 경로의 확장자를 그대로 붙여 만든다. jpg 는 정식 MIME 이
-     * image/jpeg 이지만 현재 구현은 image/jpg 를 내보낸다. 동작 변경 전에
-     * 현행을 고정해 둔다.
-     *
-     * @see docs/work/test-coverage/research.md
+     * Content-Type 은 경로의 확장자로 만들되 jpg 는 정식 MIME 인 image/jpeg 로 바로잡는다
+     * (orderhow docs/work/storage-r2-migration/plan.md §3.1).
      */
     public function test_it_derives_the_content_type_from_the_path_extension(): void
     {
@@ -82,7 +79,7 @@ class ImageControllerTest extends TestCase
 
         $response = $this->get('/'.self::BUCKET.'/'.self::PATH);
 
-        $this->assertSame('image/jpg', $response->headers->get('Content-Type'));
+        $this->assertSame('image/jpeg', $response->headers->get('Content-Type'));
     }
 
     /**
